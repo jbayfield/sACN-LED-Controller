@@ -5,6 +5,7 @@
 
 #include <ESPAsyncE131.h>
 #include <ETH.h>
+#include <Adafruit_NeoPixel.h>
 
 // sACN parameters
 #define UNIVERSE 1                      // First DMX Universe to listen for
@@ -14,6 +15,7 @@
 // LED control parameters
 #define START_ADDRESS 1                 // Start address to take data from (e.g. DMX 1)
 #define STRIP_LENGTH 10                 // Number of pixels to control
+#define LED_DATA_PIN 15                 // Pin of the LED strip data line
 
 // Ethernet constants, no touchy
 #define ETH_CLK_MODE ETH_CLOCK_GPIO17_OUT
@@ -25,6 +27,7 @@
 #define NRST 5
 
 static bool eth_connected = false;
+Adafruit_NeoPixel led_strip = Adafruit_NeoPixel(STRIP_LENGTH, LED_DATA_PIN, NEO_GRB + NEO_KHZ800);
 
 // ESPAsyncE131 instance with UNIVERSE_COUNT buffer slots
 ESPAsyncE131 e131(UNIVERSE_COUNT);
@@ -73,6 +76,9 @@ void setup() {
     delay(10);
     WiFi.onEvent(WiFiEvent); // Defines the callback (above) to be called when an Ethernet event occurs
 
+    // Initialise the LED driver...
+    led_strip.begin();
+
     // Initialise the Ethernet interface...
     pinMode(NRST, OUTPUT);
     digitalWrite(NRST, 0);
@@ -101,14 +107,21 @@ void loop() {
             int red_channel = START_ADDRESS + (pixel_index * 3);
             int green_channel = START_ADDRESS + (pixel_index * 3) + 1;
             int blue_channel = START_ADDRESS + (pixel_index * 3) + 2;
+            
+            int red_value = packet.property_values[red_channel];
+            int green_value = packet.property_values[green_channel];
+            int blue_value = packet.property_values[blue_channel];
+            
+            led_strip.setPixelColor(pixel_index, led_strip.Color(red_value, green_value, blue_value));
 
             Serial.printf("Setting pixel %u | R: %u / G: %u / B: %u \n",
-                pixel_index + 1,                 // The Universe for this packet
+                pixel_index + 1,
                 packet.property_values[red_channel],
                 packet.property_values[green_channel],
                 packet.property_values[blue_channel]
             );
           }
+          led_strip.show();
         }
     }
   }
